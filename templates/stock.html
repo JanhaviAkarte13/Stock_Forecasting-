@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Selection{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="text-center mb-5">
+                <h1>📊 Stock Selection</h1>
+                <p class="lead">Search and select stocks for analysis and prediction</p>
+            </div>
+
+            <!-- Search Box -->
+            <div class="row justify-content-center mb-5">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-search"></i> Search Stock</h5>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="stockSymbol" placeholder="Enter stock symbol (e.g., AAPL)">
+                                <button class="btn btn-primary" onclick="searchStock()">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Info Display -->
+            <div id="stockInfo" class="row justify-content-center mb-5" style="display:none;">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 id="stockName"></h4>
+                            <p id="stockDetails" class="text-muted"></p>
+                            <h2 id="stockPrice" class="text-primary"></h2>
+                            <a href="{{ url_for('prediction.prediction_page') }}" class="btn btn-success">
+                                <i class="fas fa-arrow-right"></i> Continue to Prediction
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular Stocks -->
+            <div class="row">
+                <div class="col-md-12">
+                    <h3 class="mb-4">🌟 Popular Stocks</h3>
+                    <div class="row" id="popularStocks">
+                        {% for symbol in popular_stocks %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card stock-card" onclick="selectStock('{{ symbol }}')">
+                                <div class="card-body text-center">
+                                    <h5>{{ symbol }}</h5>
+                                    <i class="fas fa-chart-line fa-2x text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function searchStock() {
+    const symbol = document.getElementById('stockSymbol').value;
+    if (!symbol) return;
+    
+    fetch('/stock/search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: symbol})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            displayStockInfo(data);
+            sessionStorage.setItem('selectedStock', symbol);
+        } else {
+            alert('❌ Stock not found');
+        }
+    });
+}
+
+function displayStockInfo(data) {
+    document.getElementById('stockInfo').style.display = 'block';
+    document.getElementById('stockName').innerText = `${data.symbol} - ${data.name}`;
+    document.getElementById('stockDetails').innerText = `${data.sector} | ${data.industry}`;
+    document.getElementById('stockPrice').innerText = `${data.currency} ${data.current_price}`;
+}
+
+function selectStock(symbol) {
+    document.getElementById('stockSymbol').value = symbol;
+    searchStock();
+}
+</script>
+{% endblock %}
