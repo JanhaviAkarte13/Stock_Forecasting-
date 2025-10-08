@@ -1,0 +1,14 @@
+Flask
+Flask-SQLAlchemy
+yfinance
+pandas
+numpy
+scikit-learn
+statsmodels
+plotly
+google-generativeai
+python-dotenv
+Werkzeug
+requests
+ta
+prophet
