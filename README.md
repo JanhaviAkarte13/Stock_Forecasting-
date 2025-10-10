@@ -43,7 +43,23 @@ The backend is powered by **Flask**, ML models are in **Python**, and the fronte
 ## 📋 Installation
 
 1. **Clone the repository:**
+```bash
+git clone https://github.com/JanhaviAkarte13/Stock_Forecasting-.git
+cd stock-forecasting-website
+```
 
-   ```bash
-   git clone https://github.com/your-username/stock-forecasting-website.git
-   cd stock-forecasting-website
+2.**Create a virtual environment:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+3.**Install dependencies:**
+ ```bash
+ pip install -r requirements.txt
+ ```
+
+4.**Run the Application**
+    ```bash
+    python app.py
+    ```
