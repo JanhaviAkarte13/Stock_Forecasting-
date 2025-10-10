@@ -6,7 +6,7 @@ A full-stack **Flask web application** for **stock market forecasting** using ma
 
 ## 🏗 Project Overview
 
-This project combines **data science**, **machine learning**, and **web development** to provide an interactive platform for stock market enthusiasts and investors. Users can:
+This project combines **machine learning**, and **web development** to provide an interactive platform for stock market enthusiasts and investors. Users can:
 
 - Fetch and view stock data.
 - Get predictions using multiple ML models.
