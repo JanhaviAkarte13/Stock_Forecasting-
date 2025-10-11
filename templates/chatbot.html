@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}AI Chatbot{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-5">🤖 Stock Market AI Assistant</h1>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+                        <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot"></i> Chat with AI Assistant
+                    </h5>
+                </div>
+                <div class="card-body" style="height: 500px; overflow-y: auto;" id="chatContainer">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-comments fa-3x mb-3"></i>
+                        <p>Ask me anything about stocks, markets, or trading! 💬</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form id="chatForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="userQuestion" 
+                                   placeholder="Type your question here..." required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="usage-note-container" 
+                style="margin-top: 15px; margin-bottom: 5px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 0.9em;">
+                
+                <b>Important Note for Stock Data Requests:</b>
+                <br>
+                To ensure the most accurate results when fetching current stock prices, please use the company's official stock ticker symbol (e.g., 'AAPL' for Apple, 'INFY.NS' for Infosys, or 'TCS.NS' for Tata Consultancy Services).
+
+                <ul style="list-style-type: none; padding-left: 10px; margin-top: 5px; margin-bottom: 0;">
+                    <li>— For large, well-known companies (like TCS, Apple, Microsoft), the full name or common abbreviation may work.</li>
+                    <li>— For smaller companies or to ensure accuracy, the official ticker symbol is required.</li>
+                </ul>
+            </div>
+                                    <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title">💡 Suggested Questions</h6>
+                    <div id="suggestions" class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-secondary">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const chatContainer = document.getElementById('chatContainer');
+const chatForm = document.getElementById('chatForm');
+const userQuestion = document.getElementById('userQuestion');
+
+// Load suggestions
+fetch('/chatbot/suggestions')
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const container = document.getElementById('suggestions');
+            container.innerHTML = '';
+            
+            data.suggestions.forEach(suggestion => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-light text-dark border cursor-pointer';
+                badge.style.cursor = 'pointer';
+                badge.textContent = suggestion;
+                badge.onclick = () => {
+                    userQuestion.value = suggestion.replace(/[📈💰📊🔍💡🎯📉🌟⚡🚀]/g, '').trim();
+                    chatForm.dispatchEvent(new Event('submit'));
+                };
+                container.appendChild(badge);
+            });
+        }
+    });
+
+// Handle chat form submission
+chatForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const question = userQuestion.value.trim();
+    if (!question) return;
+    
+    // Display user message
+    addMessage(question, 'user');
+    userQuestion.value = '';
+    
+    // Show typing indicator
+    const typingId = addMessage('Thinking... 🤔', 'bot', true);
+    
+    // Send to backend
+    fetch('/chatbot/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({question: question})
+    })
+    .then(res => res.json())
+    .then(data => {
+        // Remove typing indicator
+        document.getElementById(typingId).remove();
+        
+        if (data.success) {
+            addMessage(data.answer, 'bot');
+        } else {
+            addMessage('❌ Sorry, I encountered an error. Please try again.', 'bot');
+        }
+    })
+    .catch(err => {
+        document.getElementById(typingId).remove();
+        addMessage('❌ Connection error. Please try again.', 'bot');
+    });
+});
+
+function addMessage(text, sender, isTyping = false) {
+    const messageId = 'msg-' + Date.now();
+    const messageDiv = document.createElement('div');
+    messageDiv.id = messageId;
+    messageDiv.className = `mb-3 ${sender === 'user' ? 'text-end' : 'text-start'}`;
+    
+    const bubble = document.createElement('div');
+    bubble.className = `d-inline-block p-3 rounded ${sender === 'user' ? 'bg-primary text-white' : 'bg-light'}`;
+    bubble.style.maxWidth = '80%';
+    bubble.textContent = text;
+    
+    if (isTyping) {
+        bubble.innerHTML = text + ' <span class="spinner-border spinner-border-sm"></span>';
+    }
+    
+    messageDiv.appendChild(bubble);
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    return messageId;
+}
+
+// Clear initial message on first interaction
+let firstInteraction = true;
+userQuestion.addEventListener('focus', function() {
+    if (firstInteraction) {
+        chatContainer.innerHTML = '';
+        firstInteraction = false;
+    }
+});
+</script>
+
+<style>
+.cursor-pointer {
+    cursor: pointer;
+}
+.cursor-pointer:hover {
+    opacity: 0.8;
+}
+</style>
+{% endblock %}
