@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Trending Stocks{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔥 Trending Stocks</h1>
+        <button class="btn btn-primary" onclick="refreshAllData()">
+            <i class="fas fa-sync-alt"></i> Refresh Now
+        </button>
+    </div>
+    
+    <div class="alert alert-info">
+        <strong>🟢 LIVE DATA:</strong> <span id="lastUpdated">Loading...</span>
+        <br><small>Auto-refreshes every 5 minutes | Exchange Rate: <span id="exchangeRate">Loading...</span></small>
+    </div>
+
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#gainers">📈 Top Daily Gainers</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#losers">📉 Top Daily Losers</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#active">💹 Most Active</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#sectors">🏢 Sectors</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="gainers">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Top Gainers in USA and India</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>USD</th>
+                                    <th>INR</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gainersTable">
+                                <tr><td colspan="7" class="text-center">Loading dynamic gainers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="losers">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Top Losers in USA and India</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>USD</th>
+                                    <th>INR</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                </tr>
+                            </thead>
+                            <tbody id="losersTable">
+                                <tr><td colspan="7" class="text-center">Loading dynamic losers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="active">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Most Active Stocks in USA and India</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>USD</th>
+                                    <th>INR</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activeTable">
+                                <tr><td colspan="7" class="text-center">Loading dynamic active stocks...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="sectors">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Global Sector Performance (Fixed Indices)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="sectorCanvas" style="height: 400px;"></canvas>
+                    <div class="table-responsive mt-4">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Sector</th>
+                                    <th>5-Day</th>
+                                    <th>Today</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sectorTableBody">
+                                <tr><td colspan="4" class="text-center">Loading sector data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let sectorChart;
+// --- REFRESH INTERVAL REMAINS AT 5 MINUTES (300,000 milliseconds) ---
+const REFRESH_INTERVAL_MS = 300000; 
+
+function formatChange(value) {
+    if (value === null || value === undefined || !isFinite(value)) { 
+        return '<span class="text-secondary">N/A</span>';
+    }
+    const formatted = value.toFixed(2);
+    const cls = value >= 0 ? 'text-success' : 'text-danger';
+    const sign = value >= 0 ? '+' : '';
+    return '<span class="' + cls + '"><strong>' + sign + formatted + '%</strong></span>';
+}
+
+function formatPrice(value, currency) {
+    currency = currency || '$';
+    if (value === null || value === undefined || !isFinite(value)) {
+        return 'N/A';
+    }
+    return currency + value.toFixed(2);
+}
+
+function formatVolume(value) {
+    if (value === null || value === undefined || !isFinite(value)) {
+        return 'N/A';
+    }
+    return value.toLocaleString();
+}
+
+function updateTimestamp(timestamp, rate) {
+    const timestampEl = document.getElementById('lastUpdated');
+    const rateEl = document.getElementById('exchangeRate');
+    
+    if (timestampEl) {
+        timestampEl.textContent = timestamp;
+    }
+    
+    if (rateEl) {
+        const numericRate = parseFloat(rate); 
+        if (!isNaN(numericRate) && isFinite(numericRate)) {
+            rateEl.textContent = '$1 = ₹' + numericRate.toFixed(2);
+        } else {
+            rateEl.textContent = 'N/A';
+        }
+    }
+}
+
+function loadGainers() {
+    const tbody = document.getElementById('gainersTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm text-success" role="status"></div> Fetching dynamic gainers...</td></tr>';
+    
+    fetch('/trending/gainers')
+        .then(function(res) {
+            if (!res.ok) {
+                return res.text().then(function(text) { 
+                    throw new Error('Server error ' + res.status + ': ' + text.substring(0, 100)); 
+                });
+            }
+            return res.json();
+        })
+        .then(function(data) {
+            tbody.innerHTML = '';
+            
+            if (!data.success) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + (data.error || 'Could not fetch dynamic list due to API issue.') + '</td></tr>';
+                return;
+            }
+            
+            if (!data.gainers || data.gainers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No trending gainers found in USA or India.</td></tr>';
+                return;
+            }
+
+            updateTimestamp(data.timestamp, data.exchange_rate);
+            
+            data.gainers.forEach(function(stock, idx) {
+                tbody.innerHTML += '<tr>' +
+                    '<td>' + (idx + 1) + '</td>' +
+                    '<td><span class="badge bg-success">' + stock.symbol + '</span> ' + (stock.market || '') + '</td>' +
+                    '<td>' + stock.name + '</td>' +
+                    '<td>' + formatPrice(stock.price_usd, '$') + '</td>' +
+                    '<td>' + formatPrice(stock.price_inr, '₹') + '</td>' +
+                    '<td>' + formatChange(stock.change) + '</td>' +
+                    '<td>' + formatVolume(stock.volume) + '</td>' +
+                    '</tr>';
+            });
+            
+            console.log('✅ Loaded ' + data.gainers.length + ' dynamic gainers');
+        })
+        .catch(function(error) {
+            console.error('Error loading gainers:', error);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + error.message + '</td></tr>';
+        });
+}
+
+function loadLosers() {
+    const tbody = document.getElementById('losersTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm text-danger" role="status"></div> Fetching dynamic losers...</td></tr>';
+    
+    fetch('/trending/losers')
+        .then(function(res) {
+            if (!res.ok) {
+                return res.text().then(function(text) { 
+                    throw new Error('Server error ' + res.status); 
+                });
+            }
+            return res.json();
+        })
+        .then(function(data) {
+            tbody.innerHTML = '';
+            
+            if (!data.success) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + (data.error || 'Could not fetch dynamic list due to API issue.') + '</td></tr>';
+                return;
+            }
+            
+            if (!data.losers || data.losers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No trending losers found in USA or India.</td></tr>';
+                return;
+            }
+
+            updateTimestamp(data.timestamp, data.exchange_rate);
+            
+            data.losers.forEach(function(stock, idx) {
+                tbody.innerHTML += '<tr>' +
+                    '<td>' + (idx + 1) + '</td>' +
+                    '<td><span class="badge bg-danger">' + stock.symbol + '</span> ' + (stock.market || '') + '</td>' +
+                    '<td>' + stock.name + '</td>' +
+                    '<td>' + formatPrice(stock.price_usd, '$') + '</td>' +
+                    '<td>' + formatPrice(stock.price_inr, '₹') + '</td>' +
+                    '<td>' + formatChange(stock.change) + '</td>' +
+                    '<td>' + formatVolume(stock.volume) + '</td>' +
+                    '</tr>';
+            });
+            
+            console.log('✅ Loaded ' + data.losers.length + ' dynamic losers');
+        })
+        .catch(function(error) {
+            console.error('Error loading losers:', error);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + error.message + '</td></tr>';
+        });
+}
+
+function loadMostActive() {
+    const tbody = document.getElementById('activeTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Fetching dynamic active stocks...</td></tr>';
+    
+    fetch('/trending/most-active')
+        .then(function(res) {
+            if (!res.ok) {
+                return res.text().then(function(text) { 
+                    throw new Error('Server error ' + res.status); 
+                });
+            }
+            return res.json();
+        })
+        .then(function(data) {
+            tbody.innerHTML = '';
+            
+            if (!data.success) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + (data.error || 'Could not fetch dynamic list due to API issue.') + '</td></tr>';
+                return;
+            }
+            
+            if (!data.active || data.active.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No most active stocks found in USA or India.</td></tr>';
+                return;
+            }
+
+            updateTimestamp(data.timestamp, data.exchange_rate);
+            
+            data.active.forEach(function(stock, idx) {
+                tbody.innerHTML += '<tr>' +
+                    '<td>' + (idx + 1) + '</td>' +
+                    '<td><span class="badge bg-primary">' + stock.symbol + '</span> ' + (stock.market || '') + '</td>' +
+                    '<td>' + stock.name + '</td>' +
+                    '<td>' + formatPrice(stock.price_usd, '$') + '</td>' +
+                    '<td>' + formatPrice(stock.price_inr, '₹') + '</td>' +
+                    '<td>' + formatChange(stock.change) + '</td>' +
+                    '<td>' + formatVolume(stock.volume) + '</td>' +
+                    '</tr>';
+            });
+            
+            console.log('✅ Loaded ' + data.active.length + ' dynamic active stocks');
+        })
+        .catch(function(error) {
+            console.error('Error loading most active:', error);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + error.message + '</td></tr>';
+        });
+}
+
+function loadSectors() {
+    const tbody = document.getElementById('sectorTableBody');
+    const canvas = document.getElementById('sectorCanvas');
+    
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm text-info" role="status"></div> Fetching sector data...</td></tr>';
+    
+    fetch('/trending/sector-performance')
+        .then(function(res) {
+            if (!res.ok) {
+                return res.text().then(function(text) { 
+                    throw new Error('Server error ' + res.status); 
+                });
+            }
+            return res.json();
+        })
+        .then(function(data) {
+            if (!data.success) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error: ' + (data.error || 'Unknown') + '</td></tr>';
+                return;
+            }
+            
+            if (!data.sectors || data.sectors.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No sector data available</td></tr>';
+                if (sectorChart) sectorChart.destroy();
+                return;
+            }
+
+            updateTimestamp(data.timestamp, data.exchange_rate);
+
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                
+                const labels = data.sectors.map(function(s) { return s.sector; });
+                const changes_5d = data.sectors.map(function(s) { return s.change_5d !== null ? s.change_5d : 0; });
+                const colors = changes_5d.map(function(c) { return c > 0 ? 'rgba(75,192,192,0.7)' : 'rgba(255,99,132,0.7)'; });
+
+                if (sectorChart) sectorChart.destroy();
+                
+                sectorChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '5-Day % Change',
+                            data: changes_5d, 
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: 'Sector Performance (5-Day %)' },
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                title: { display: true, text: 'Percentage Change (%)' }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            tbody.innerHTML = '';
+            
+            data.sectors.forEach(function(s) {
+                const icon = s.today_change > 0 ? '📈' : (s.today_change < 0 ? '📉' : '➖');
+                
+                tbody.innerHTML += '<tr>' +
+                    '<td>' + icon + ' ' + s.sector + '</td>' +
+                    '<td>' + formatChange(s.change_5d) + '</td>' +
+                    '<td>' + formatChange(s.today_change) + '</td>' +
+                    '<td>' + formatPrice(s.price, '$') + '</td>' +
+                    '</tr>';
+            });
+            
+            console.log('✅ Loaded ' + data.sectors.length + ' sectors');
+        })
+        .catch(function(error) {
+            console.error('Error loading sectors:', error);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error: ' + error.message + '</td></tr>';
+        });
+}
+
+function refreshAllData() {
+    console.log('🔄 Refreshing all dynamic trending data...');
+    loadGainers();
+    loadLosers();
+    loadMostActive();
+    loadSectors();
+}
+
+window.addEventListener('load', function() {
+    refreshAllData();
+    setInterval(refreshAllData, REFRESH_INTERVAL_MS); 
+});
+</script>
+{% endblock %}
