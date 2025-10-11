@@ -24,10 +24,6 @@ INDIAN_STOCKS_FALLBACK = [
 US_STOCKS_FALLBACK = list(set(US_STOCKS_FALLBACK))
 INDIAN_STOCKS_FALLBACK = list(set(INDIAN_STOCKS_FALLBACK))
 
-# Placeholder for login_required (assuming it's defined in routes.auth)
-# If running this file standalone, you may need to define a simple decorator here
-# def login_required(f): return f 
-
 
 def get_usd_to_inr():
     """Get USD to INR with caching (5-minute cache)"""
@@ -401,4 +397,5 @@ def market_status():
             'nyse': {'is_open': nyse_open, 'status': '🟢 OPEN' if nyse_open else '🔴 CLOSED', 'time': now_est.strftime('%I:%M %p EST')}
         })
     except:
+
         return jsonify({'success': True, 'nse': {'is_open': False, 'status': '❓ UNKNOWN'}, 'nyse': {'is_open': False, 'status': '❓ UNKNOWN'}})
