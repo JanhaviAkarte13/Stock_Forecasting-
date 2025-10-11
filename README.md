@@ -35,7 +35,7 @@ The backend is powered by **Flask**, ML models are in **Python**, and the fronte
 - **Flask Backend:** Handles routes, API calls, authentication, and rendering templates.  
 - **ML Models:** Stored in `/models`, include preprocessing, feature engineering, forecasting, and evaluation.  
 - **Database:** SQLite database for storing user info and stock data.  
-- **Frontend:** HTML templates in `/templates` and static files in `/static` (CSS, JS, images).  
+- **Frontend:** HTML templates in `/templates` and static files in `/static` (CSS, JS).  
 - **Utilities:** Custom decorators and helper functions in `/utils` for cleaner code.  
 
 ---
