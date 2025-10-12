@@ -44,8 +44,8 @@ The backend is powered by **Flask**, ML models are in **Python**, and the fronte
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/JanhaviAkarte13/Stock_Forecasting-.git
-cd stock-forecasting-website
+git clone https://github.com/JanhaviAkarte13/Stock_Market_Forecasting.git
+cd Stock_Market_Forecasting
 ```
 
 2.**Create a virtual environment:**
