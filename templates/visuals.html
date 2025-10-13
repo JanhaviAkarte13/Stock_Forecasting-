@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Visualizations{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-5">📊 Stock Visualizations</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Select Stock</label>
+                            <input type="text" class="form-control" id="visualSymbol" placeholder="AAPL" value="AAPL">
+                        </div>
+                        <div class="col-md-2">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="loadVisuals()">
+                                <i class="fas fa-chart-bar"></i> Load Charts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>📈 Candlestick Chart (<span id="candlestickSymbol">AAPL</span> - Last 90 Days)</h5>
+                    <div id="candlestickChart" style="width: 100%; height: 500px;">
+                        Loading Candlestick Chart...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>📉 Technical Indicators</h5>
+                    <canvas id="technicalChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>💹 RSI Indicator</h5>
+                    <canvas id="rsiChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>📊 Volume Analysis</h5>
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let charts = {};
+
+function loadVisuals() {
+    const symbol = document.getElementById('visualSymbol').value;
+    if (!symbol) return;
+    
+    // Update titles
+    document.getElementById('candlestickSymbol').innerText = symbol;
+
+    loadCandlestickChart(symbol);
+    loadTechnicalChart(symbol);
+    loadVolumeChart(symbol);
+    // RSI chart is loaded inside loadTechnicalChart
+}
+
+function loadCandlestickChart(symbol) {
+    const chartDiv = document.getElementById('candlestickChart');
+    chartDiv.innerHTML = '<div class="text-center p-5">Fetching Candlestick data...</div>';
+
+    fetch(`/visuals/candlestick/${symbol}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // CHANGE 2: Use Plotly to draw the Candlestick chart
+                const trace = {
+                    x: data.data.dates,
+                    open: data.data.open,
+                    high: data.data.high,
+                    low: data.data.low,
+                    close: data.data.close,
+                    type: 'candlestick', // This is the magic line for Plotly
+                    name: `${symbol} Price`
+                };
+
+                const layout = {
+                    title: `${symbol} - Candlestick Chart`,
+                    xaxis: {
+                        rangeslider: { visible: false },
+                        title: 'Date'
+                    },
+                    yaxis: {
+                        title: 'Price ($)'
+                    }
+                };
+                
+                Plotly.newPlot('candlestickChart', [trace], layout, {responsive: true});
+            } else {
+                chartDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            chartDiv.innerHTML = `<div class="alert alert-danger">Network Error loading Candlestick data.</div>`;
+            console.error("Fetch error:", error);
+        });
+}
+
+function loadTechnicalChart(symbol) {
+    fetch(`/visuals/technical/${symbol}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const ctx = document.getElementById('technicalChart').getContext('2d');
+                
+                if (charts.technical) charts.technical.destroy();
+                
+                charts.technical = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.data.dates,
+                        datasets: [{
+                            label: 'Close Price',
+                            data: data.data.close,
+                            borderColor: 'rgb(54, 162, 235)',
+                            yAxisID: 'y'
+                        }, {
+                            label: 'SMA 20',
+                            data: data.data.sma_20,
+                            borderColor: 'rgb(255, 159, 64)',
+                            yAxisID: 'y'
+                        }, {
+                            label: 'SMA 50',
+                            data: data.data.sma_50,
+                            borderColor: 'rgb(153, 102, 255)',
+                            yAxisID: 'y'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${symbol} - Moving Averages`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left'
+                            }
+                        }
+                    }
+                });
+                
+                // Create RSI Chart
+                const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+                if (charts.rsi) charts.rsi.destroy();
+                
+                charts.rsi = new Chart(rsiCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.data.dates,
+                        datasets: [{
+                            label: 'RSI',
+                            data: data.data.rsi,
+                            borderColor: 'rgb(255, 99, 132)',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Relative Strength Index (RSI)'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+}
+
+function loadVolumeChart(symbol) {
+    fetch(`/visuals/volume/${symbol}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const ctx = document.getElementById('volumeChart').getContext('2d');
+                
+                if (charts.volume) charts.volume.destroy();
+                
+                charts.volume = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.data.dates,
+                        datasets: [{
+                            label: 'Volume',
+                            data: data.data.volume,
+                            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                            borderColor: 'rgb(75, 192, 192)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${symbol} - Trading Volume`
+                            }
+                        }
+                    }
+                });
+            }
+        });
+}
+
+// Load default visualizations on page load
+window.addEventListener('load', () => {
+    loadVisuals();
+});
+</script>
+{% endblock %}

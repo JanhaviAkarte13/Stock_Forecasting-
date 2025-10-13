@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Prediction{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-5">🔮 Stock Price Prediction</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Prediction Parameters</h5>
+                    <form id="predictionForm">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label>Stock Symbol</label>
+                                <input type="text" class="form-control" id="symbol" value="AAPL" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Model Type</label>
+                                <select class="form-control" id="model">
+                                    <option value="Random Forest">Random Forest (Recommended)</option>
+                                    <option value="ARIMA">ARIMA</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label>Forecast Days</label>
+                                <input type="number" class="form-control" id="days" value="30" min="7" max="90">
+                            </div>
+                            <div class="col-md-2">
+                                <label>Start Date</label>
+                                <input type="date" class="form-control" id="startDate">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="d-block">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-play"></i> Predict
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="text-center" style="display:none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Generating predictions... ⏳</p>
+    </div>
+
+    <div id="results" style="display:none;">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Prediction Chart</h5>
+                        <canvas id="predictionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let predictionChart;
+
+document.getElementById('predictionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const symbol = document.getElementById('symbol').value;
+    const model = document.getElementById('model').value;
+    const days = document.getElementById('days').value;
+    const startDate = document.getElementById('startDate').value;
+    
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('results').style.display = 'none';
+    
+    fetch('/prediction/forecast', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            symbol: symbol,
+            model: model,
+            days: days,
+            start_date: startDate
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(err => {
+        document.getElementById('loading').style.display = 'none';
+        alert('❌ Error generating prediction');
+    });
+});
+
+function displayResults(data) {
+    document.getElementById('results').style.display = 'block';
+    
+    // REMOVED: JAVASCRIPT LOGIC TO DISPLAY METRICS (RMSE, MAE, MSE)
+    
+    // Create chart
+    const ctx = document.getElementById('predictionChart').getContext('2d');
+    
+    if (predictionChart) {
+        predictionChart.destroy();
+    }
+    
+    // --- FIX START: Prepare combined historical and forecast labels/data ---
+    const allDates = [...data.historical.dates];
+    const historicalDataPoints = data.historical.actual.map((val, idx) => ({x: data.historical.dates[idx], y: val}));
+    
+    // Create an array of nulls for the forecast dates, so the historical line stops
+    const forecastDates = data.forecast.dates;
+    
+    // The Historical line data: Historical data + nulls for forecast period
+    const historicalData = [...data.historical.actual];
+    for (let i = 0; i < forecastDates.length; i++) {
+        historicalData.push(null);
+    }
+
+    // The Predicted line data: Nulls for historical period + Forecast data
+    const predictedData = [];
+    for (let i = 0; i < data.historical.dates.length - 1; i++) {
+        predictedData.push(null);
+    }
+    // The prediction must start from the last historical point (T) and then use forecast (T+1, T+2, ...)
+    predictedData.push(data.historical.actual[data.historical.actual.length - 1]); // Last historical price (point T)
+    
+    for (const val of data.forecast.values) {
+        predictedData.push(val); // Forecast prices (points T+1, T+2, ...)
+    }
+
+    // Combine all dates for the X-axis labels
+    const allLabels = [...data.historical.dates, ...data.forecast.dates];
+    // --- FIX END ---
+
+
+    predictionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [{
+                label: 'Historical Prices',
+                data: historicalData,
+                // The spanGaps:true ensures the line will continue across the null values if needed, 
+                // but setting the forecast part to null is the standard way to stop the line.
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1
+            }, {
+                label: 'Predicted Prices',
+                data: predictedData,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                borderDash: [5, 5],
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `${data.symbol} - ${data.model} Prediction`
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category', // Use category scale for better date display alignment
+                    labels: allLabels // Pass combined labels to the X-axis
+                },
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Price ($)'
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}
