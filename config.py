@@ -16,10 +16,11 @@ class Config:
     HISTORICAL_DAYS = 730  # 2 years
     
     # Model settings
-    MODELS = ['ARIMA', 'Prophet', 'Random Forest']
+    MODELS = ['ARIMA', 'Random Forest']
     
     # Popular stock symbols
     POPULAR_STOCKS = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA',
         'META', 'NVDA', 'JPM', 'V', 'WMT'
+
     ]
